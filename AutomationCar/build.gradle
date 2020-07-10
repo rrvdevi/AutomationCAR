@@ -1,0 +1,92 @@
+import net.masterthought.cucumber.ReportBuilder
+import net.masterthought.cucumber.Configuration
+import net.masterthought.cucumber.Reportable
+
+
+apply plugin: 'java-library'
+apply plugin: 'java'
+apply plugin: 'maven'
+apply plugin: 'idea'
+apply plugin: 'de.undercouch.download'
+apply plugin: 'groovy'
+apply plugin: 'application'
+apply plugin: 'maven-publish'
+
+
+repositories {
+    mavenCentral()
+}
+
+
+// Build script repos and dependencies, required for build.gradle to run
+buildscript {
+    repositories {
+
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.github.samueltbrown:gradle-cucumber-plugin:0.8', 'com.github.mkolisnyk:cucumber-runner:1.0.8', "org.codehaus.gpars:gpars:1.2.1",
+                "net.masterthought:cucumber-reporting:3.5.1", "de.undercouch:gradle-download-task:3.4.3"
+    }
+}
+
+
+dependencies {
+    compile 'junit:junit:4.12',
+            'info.cukes:cucumber-core:1.2.4',
+            'info.cukes:cucumber-java:1.2.4',
+            'info.cukes:cucumber-jvm-deps:1.0.5',
+            'info.cukes:gherkin:2.12.2',
+            'info.cukes:cucumber-junit:1.2.4',
+            'com.jayway.restassured:rest-assured:2.4.0'
+    compile group: 'org.seleniumhq.selenium', name: 'selenium-java', version: '3.5.3'
+    compile group: 'org.seleniumhq.selenium', name: 'selenium-api', version: '3.5.3'
+    compile group: 'org.seleniumhq.selenium', name: 'selenium-support', version: '3.5.3'
+    compileOnly group: 'info.cukes', name: 'gherkin', version: '2.12.2'
+    compileOnly group: 'info.cukes', name: 'cucumber-jvm-deps', version: '1.0.5'
+    compile(group: 'info.cukes', name: 'cucumber-testng', version: '1.2.5')
+    compile group: 'log4j', name: 'log4j', version: '1.2.17'
+    compile group: 'org.apache.commons', name: 'commons-lang3', version: '3.9'
+}
+
+
+task runWithTags {
+    doLast {
+
+        runCucumberOneRuleEngineTags(a)
+    }
+
+}
+
+
+def runCucumberOneRuleEngineTags(a) {
+
+    def arglist = ["-p", "pretty", '--tags', "${a}", "-p", "json:${reporting.baseDir}/cucumber/cucumber.json", "--glue", "com.automation",
+                   "${project.projectDir}/src/main/resources/features/"]
+    try {
+        javaexec {
+            main = "cucumber.api.cli.Main"
+            classpath = sourceSets.main.runtimeClasspath
+            args = arglist
+        }
+
+    } catch (Exception e) {
+        throw new GradleException('error occurred: ' + e)
+    } finally {
+        generateReport()
+    }
+}
+
+
+def generateReport() {
+    def jsonReports = fileTree(dir: "${reporting.baseDir}/cucumber/").include '**/*.json'.toString()
+    File reportOutputDirectory = new File("${reporting.baseDir}/cucumber");
+    List<String> jsonReportFiles = new ArrayList<String>();
+    jsonReports.each { File file ->
+        jsonReportFiles.add("${reporting.baseDir}/cucumber/${file.name}".toString());
+    }
+    Configuration configuration = new Configuration(reportOutputDirectory, "cucumber-selenium");
+    ReportBuilder reportBuilder = new ReportBuilder(jsonReportFiles, configuration);
+    Reportable result = reportBuilder.generateReports();
+    println("\nReport available on: ${reporting.baseDir}/cucumber/cucumber-html-reports/overview-features.html")
+}
